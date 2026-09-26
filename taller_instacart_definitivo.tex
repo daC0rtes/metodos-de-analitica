@@ -4,34 +4,63 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[spanish,es-nodecimaldot]{babel}
-\usepackage[letterpaper,margin=2.35cm]{geometry}
+\usepackage[
+    letterpaper,
+    top=2.0cm,
+    bottom=2.0cm,
+    left=2.55cm,
+    right=2.55cm
+]{geometry}
 \usepackage{amsmath,amssymb,booktabs,tabularx,array,longtable}
 \usepackage{xcolor,hyperref,enumitem,microtype,caption,float}
 \usepackage{ragged2e}
 \usepackage{fancyhdr}
 
 \hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=blue}
-\setlist[itemize]{leftmargin=*,nosep}
-\setlist[enumerate]{leftmargin=*,nosep}
-\renewcommand{\arraystretch}{1.18}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3.5pt}
+\setlist{nosep,leftmargin=*}
+\renewcommand{\arraystretch}{1.08}
+\captionsetup{font=small,labelfont=bf}
 \newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
 \newcommand{\pct}[1]{#1\%}
 \newcommand{\rulex}[2]{\{#1\}\,$\Rightarrow$\,\{#2\}}
 
-\pagestyle{fancy}
-\fancyhf{}
-\lhead{Taller grupal 1 -- Sistemas de Recomendación}
-\rhead{Instacart}
-\cfoot{\thepage}
-
-\title{\textbf{Sistemas de recomendación basados en reglas de asociación}\\
-\large Taller grupal 1: análisis de canastas de mercado de Instacart}
-\author{Nestor Cortés\\
-\small Pontificia Universidad Javeriana -- Métodos de Analítica}
-\date{2026}
-
 \begin{document}
-\maketitle
+
+% =========================================================
+% ENCABEZADO INSTITUCIONAL (formato de main (1).tex)
+% =========================================================
+\begin{minipage}[t]{0.24\textwidth}
+    \vspace{0pt}
+    \centering
+    \IfFileExists{logo javeriana.png}{\includegraphics[width=3.05cm]{logo javeriana.png}}{}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.72\textwidth}
+    \vspace{0pt}
+    \begin{flushright}
+        {\large\textbf{\textit{Facultad de Ingeniería}}}\\[0.15cm]
+        {\Large\textit{Métodos y aplicaciones de analítica I}}\\[0.10cm]
+        {\small\textit{Taller 01 -- Segundo Semestre 2026}}
+    \end{flushright}
+\end{minipage}
+
+\vspace{0.45cm}
+
+\begin{center}
+    {\large\textbf{Sistemas de recomendación basados en reglas de asociación}}\\[0.12cm]
+    {\normalsize\textit{Análisis de canastas de mercado de Instacart}}\\[0.30cm]
+    {\normalsize Nestor Fandiño\textsuperscript{a,c}}\\[0.12cm]
+    {\normalsize Diego Alejandro Cortes Suarez\textsuperscript{a,c}}\\[0.12cm]
+    {\normalsize Andres Rodriguez Torres\textsuperscript{b,c}}\\[0.18cm]
+    {\small
+    \textsuperscript{a}\textit{Estudiantes de la Maestría en Inteligencia Artificial}\\[-0.02cm]
+    \textsuperscript{b}\textit{Profesor, Departamento de Ingeniería de Sistemas}\\[-0.02cm]
+    \textsuperscript{c}\textit{Pontificia Universidad Javeriana, Bogotá, Colombia}}
+\end{center}
+
+\vspace{0.35cm}
 
 \begin{abstract}
 Este trabajo usa reglas de asociación para estudiar qué productos y qué pasillos aparecen juntos en las canastas de Instacart. La unidad de análisis es una orden: cada orden se transforma en una transacción con los artículos que contiene. Se minan únicamente reglas de la forma $n\rightarrow1$, es decir, uno o varios antecedentes y un solo consecuente. Las reglas se evalúan con soporte, confianza y \textit{lift}; luego se verifican en el conjunto \texttt{train}, separado de las compras históricas usadas para descubrirlas. El resultado principal es que las reglas por pasillo son más interpretables y suficientemente frecuentes para proponer recomendaciones tanto en el canal virtual como en el físico.
