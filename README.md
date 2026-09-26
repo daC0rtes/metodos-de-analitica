@@ -7,12 +7,29 @@ Proyecto para el Taller grupal 1, basado en las transacciones de Instacart. El p
 - Identificar qué productos o categorías aparecen juntos en una misma canasta de compra.
 - Estimar la probabilidad de recomendar un producto B cuando el cliente ya escogió A: $P(B \mid A)$.
 - Traducir los patrones encontrados en acciones para tienda virtual, tienda física, promociones y combos.
-- Comparar reglas simples (1 a 1) con combinaciones más ricas (2 a 1 y 2 a 2), manteniendo resultados interpretables.
+- Comparar reglas n→1: antecedentes de uno, dos y tres elementos que recomiendan un único producto o pasillo.
 
 ## Cómo vamos
 
 - Ya entendimos y preparamos la lógica de *Market Basket Analysis*: una orden es una canasta y una regla tiene soporte, confianza y lift.
-- En una muestra de 50.000 órdenes, 41.490 (82,98 %) tienen cuatro o más productos; hay base suficiente para probar reglas 1→1, 2→1 y 2→2.
+- En una muestra de 50.000 órdenes, 41.490 (82,98 %) tienen cuatro o más productos; hay base para probar reglas 1→1, 2→1 y 3→1 a nivel de producto.
+
+## Hoja de ruta del taller
+
+Esta lista es nuestro control de avance. La actualizaremos a medida que la evidencia y el código estén listos.
+
+- [x] Entender la estructura de `orders`, `order_products__prior` y los catálogos de productos/pasillos.
+- [x] Preparar el script R y transformar órdenes históricas en canastas.
+- [x] Medir el tamaño de las canastas de productos en una muestra de 50.000 órdenes.
+- [x] Confirmar que el enfoque del profesor es únicamente reglas **n→1**.
+- [x] Ajustar el script: conservar reglas 1→1, habilitar 2→1 y 3→1, y excluir 2→2.
+- [ ] Ejecutar la medición de **pasillos distintos** por canasta; el número de productos no equivale al número de pasillos.
+- [ ] Ejecutar reglas producto→producto y seleccionar las que tengan soporte, confianza y lift interpretables.
+- [ ] Ejecutar reglas pasillo→pasillo y comparar su comportamiento con las reglas de producto.
+- [ ] Traducir las reglas seleccionadas en recomendaciones para tienda virtual y acciones para tienda física.
+- [ ] Analizar hallazgos adicionales: hora, día de la semana y recurrencia de compra.
+- [ ] Usar `order_products__train.csv` para validar si las reglas aprendidas con `prior` se sostienen en órdenes futuras.
+- [ ] Redactar conclusiones, limitaciones y recomendaciones finales para el taller.
 
 ## La pregunta de negocio
 
@@ -44,23 +61,21 @@ Un lift mayor que 1 indica asociación positiva. Aun así, una regla debe tener 
 |---|---|---|
 | 1→1 | $\{\text{leche}\}\rightarrow\{\text{cereal}\}$ | Recomendación directa en el carrito. |
 | 2→1 | $\{\text{leche, cereal}\}\rightarrow\{\text{banano}\}$ | Recomendación contextual. |
-| 2→2 | $\{\text{pasta, salsa}\}\rightarrow\{\text{queso, vino}\}$ | Combo, promoción o exhibición conjunta. |
+| 3→1 | $\{\text{pasta, salsa, queso}\}\rightarrow\{\text{vino}\}$ | Recomendación muy contextual. |
 
-Una canasta debe tener al menos dos productos para analizar 1→1, tres para 2→1 y cuatro para 2→2.
+Una canasta debe tener al menos dos elementos para analizar 1→1, tres para 2→1 y cuatro para 3→1. Un elemento puede ser un producto o un pasillo.
 
 ## El problema de combinatoria
 
-Las combinaciones son interesantes, pero crecen muy rápido. Con cuatro productos distintos $\{A,B,C,D\}$, se pueden construir seis reglas dirigidas de tipo 2→2:
+Las combinaciones son interesantes, pero crecen muy rápido. Con cuatro productos distintos $\{A,B,C,D\}$ y la restricción n→1, se pueden construir 28 reglas dirigidas:
 
-$$
-\{A,B\}\rightarrow\{C,D\},\quad
-\{A,C\}\rightarrow\{B,D\},\quad
-\{A,D\}\rightarrow\{B,C\}
-$$
+| Tamaño de antecedente | Número de reglas posibles |
+|---:|---:|
+| 1→1 | 12 |
+| 2→1 | 12 |
+| 3→1 | 4 |
 
-y sus tres reglas en dirección contraria.
-
-Una canasta grande produce muchas combinaciones candidatas. Por eso no escogeremos reglas solo porque existan: Apriori descarta primero las combinaciones que no alcanzan un soporte mínimo. Luego revisaremos confianza, lift e interpretación de negocio. La estrategia es comenzar con 1→1, evaluar 2→1 como extensión principal y usar 2→2 cuando el volumen de evidencia lo justifique.
+Una canasta grande produce muchas combinaciones candidatas. Por eso no escogeremos reglas solo porque existan: Apriori descarta primero las combinaciones que no alcanzan un soporte mínimo. Luego revisaremos confianza, lift e interpretación de negocio. La estrategia es comenzar con 1→1, evaluar 2→1 como extensión principal y usar 3→1 solo cuando el volumen de evidencia lo justifique.
 
 ## Datos
 

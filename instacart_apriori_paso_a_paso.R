@@ -10,7 +10,8 @@
 # Orden 10 -> {Bananas, Yogurt, Granola}
 # Orden 11 -> {Milk, Eggs}
 #
-# A partir de esas canastas buscamos reglas A => B.
+# A partir de esas canastas buscamos reglas X => Y, donde X puede contener
+# uno o varios elementos y Y contiene exactamente uno (reglas n => 1).
 # - soporte:     P(A interseccion B)
 # - confianza:   P(B dado A)
 # - lift:        P(B dado A) / P(B)
@@ -37,6 +38,107 @@ invisible(lapply(paquetes, instalar_si_falta))
 library(data.table)
 library(arules)
 library(arulesViz)
+
+# -------------------------
+# Funciones auxiliares
+# -------------------------
+# Estas funciones evitan repetir la misma lógica para productos y pasillos.
+# No calculan métricas nuevas: Apriori calcula soporte, confianza y lift; aquí
+# solo restringimos la forma de las reglas a n => 1 y ordenamos sus salidas.
+
+resumir_viabilidad_n_a_uno <- function(tamanos, columna, etiqueta, max_n) {
+  valores <- tamanos[[columna]]
+  resultado <- data.table(
+    nivel = etiqueta,
+    n_antecedente = seq_len(max_n),
+    elementos_minimos_en_canasta = seq_len(max_n) + 1L
+  )
+  resultado[, ordenes_viables := vapply(
+    elementos_minimos_en_canasta,
+    function(minimo) sum(valores >= minimo),
+    numeric(1)
+  )]
+  resultado[, proporcion_ordenes_viables := ordenes_viables / length(valores)]
+  resultado
+}
+
+minar_reglas_n_a_uno <- function(transacciones, soporte, confianza,
+                                 max_antecedente, etiqueta) {
+  # maxlen cuenta todos los elementos: n a la izquierda + 1 a la derecha.
+  candidatas <- apriori(
+    transacciones,
+    parameter = list(
+      support = soporte,
+      confidence = confianza,
+      minlen = 2,
+      maxlen = max_antecedente + 1,
+      target = "rules"
+    )
+  )
+
+  if (length(candidatas) == 0) {
+    return(candidatas)
+  }
+
+  # Apriori puede formar reglas con varios elementos a la derecha. El filtro
+  # siguiente conserva únicamente X => Y, donde Y tiene tamaño exactamente 1.
+  filtro_n_a_uno <- size(lhs(candidatas)) >= 1 &
+    size(lhs(candidatas)) <= max_antecedente &
+    size(rhs(candidatas)) == 1
+  reglas <- candidatas[filtro_n_a_uno]
+
+  cat("\nReglas n => 1 para", etiqueta, ":", length(reglas), "\n")
+  reglas
+}
+
+exportar_reglas_n_a_uno <- function(reglas, etiqueta, max_antecedente,
+                                    ruta_salida) {
+  if (length(reglas) == 0) {
+    message("No se generaron reglas n => 1 para ", etiqueta,
+            ". Pruebe umbrales menores.")
+    return(invisible(NULL))
+  }
+
+  # Se exporta cada n por separado: asi se comparan 1=>1, 2=>1 y 3=>1.
+  for (n in seq_len(max_antecedente)) {
+    reglas_n <- reglas[size(lhs(reglas)) == n]
+    if (length(reglas_n) == 0) next
+
+    tabla_n <- as(reglas_n, "data.frame")
+    tabla_n$n_antecedente <- n
+    tabla_n$n_consecuente <- 1
+    setDT(tabla_n)
+    setcolorder(tabla_n, c("n_antecedente", "n_consecuente",
+                           setdiff(names(tabla_n),
+                                   c("n_antecedente", "n_consecuente"))))
+
+    nombre_base <- paste0("reglas_", etiqueta, "_", n, "_a_1")
+    fwrite(tabla_n, file.path(ruta_salida, paste0(nombre_base, "_todas.csv")))
+
+    top_lift <- head(tabla_n[order(-lift)], 30)
+    fwrite(top_lift,
+           file.path(ruta_salida, paste0(nombre_base, "_top_lift.csv")))
+
+    top_soporte <- head(tabla_n[order(-support)], 30)
+    fwrite(top_soporte,
+           file.path(ruta_salida, paste0(nombre_base, "_top_soporte.csv")))
+
+    cat("\n--- Top reglas ", etiqueta, " ", n, " => 1 por lift ---\n",
+        sep = "")
+    inspect(head(sort(reglas_n, by = "lift", decreasing = TRUE), 10))
+  }
+
+  # Grafico global: cada punto representa una regla n => 1.
+  top_global <- head(sort(reglas, by = "lift", decreasing = TRUE), 30)
+  png(file.path(ruta_salida, paste0("reglas_", etiqueta,
+                                    "_n_a_1_soporte_lift.png")),
+      width = 1400, height = 900, res = 150)
+  plot(top_global, measure = c("support", "lift"), shading = "confidence",
+       main = paste("Reglas", etiqueta, "n => 1: soporte y lift"))
+  dev.off()
+
+  invisible(NULL)
+}
 
 # -------------------------
 # 1. Rutas y parametros
@@ -69,6 +171,12 @@ SOPORTE_MINIMO_PRODUCTO <- 0.002
 CONFIANZA_MINIMA_PRODUCTO <- 0.15
 SOPORTE_MINIMO_CATEGORIA <- 0.01
 CONFIANZA_MINIMA_CATEGORIA <- 0.20
+
+# El profesor delimitó el análisis a reglas n => 1. Por ahora evaluaremos
+# antecedentes de uno, dos y tres elementos; el consecuente siempre será uno.
+# Un valor mayor aumenta rápidamente el número de combinaciones posibles.
+MAX_ANTECEDENTE_PRODUCTO <- 3
+MAX_ANTECEDENTE_PASILLO <- 3
 
 stopifnot(dir.exists(ruta_datos))
 
@@ -123,8 +231,8 @@ cat("Productos distintos en la muestra:", uniqueN(items$product_id), "\n")
 # 4. Tamano de las canastas: ¿hay espacio para combinaciones?
 # -------------------------
 # Una canasta con 1 producto no permite estudiar asociaciones. Una canasta con
-# mas de 3 productos ya permite explorar reglas como {A, B} => C y, con mas
-# prudencia, {A, B} => {C, D}.
+# 4 productos permite, como máximo, reglas {A, B, C} => D. El taller usará
+# únicamente reglas n => 1; no se generarán reglas 2 => 2.
 #
 # Primero contamos productos DISTINTOS por orden. Luego unimos user_id para
 # responder dos preguntas diferentes:
@@ -166,11 +274,36 @@ print(resumen_canastas)
 fwrite(resumen_canastas, file.path(ruta_salida, "resumen_canastas_mas_de_3.csv"))
 
 # Esta distribucion muestra si tres productos es un umbral razonable o si se
-# debe ajustar. Por ejemplo, una mediana de 5 indica que reglas 2 => 1 son
-# plausibles para una parte importante de las ordenes.
+# debe ajustar. Por ejemplo, una mediana de 5 indica que reglas 2 => 1 y 3 => 1
+# son plausibles para una parte importante de las ordenes.
 distribucion_tamano_canasta <- tamano_canasta[, .N, by = n_productos][order(n_productos)]
 fwrite(distribucion_tamano_canasta,
        file.path(ruta_salida, "distribucion_tamano_canastas.csv"))
+
+# El conteo anterior es por PRODUCTOS. Para reglas pasillo => pasillo debemos
+# medir los PASILLOS distintos: cuatro frutas pueden ser cuatro productos pero
+# un solo pasillo, por lo que no aportan cuatro elementos al antecedente.
+tamano_canasta_pasillo <- items[, .(n_pasillos = uniqueN(aisle)), by = order_id]
+distribucion_tamano_canasta_pasillo <- tamano_canasta_pasillo[
+  , .N, by = n_pasillos
+][order(n_pasillos)]
+fwrite(distribucion_tamano_canasta_pasillo,
+       file.path(ruta_salida, "distribucion_tamano_canastas_pasillo.csv"))
+
+viabilidad_producto <- resumir_viabilidad_n_a_uno(
+  tamano_canasta, "n_productos", "producto",
+  MAX_ANTECEDENTE_PRODUCTO
+)
+viabilidad_pasillo <- resumir_viabilidad_n_a_uno(
+  tamano_canasta_pasillo, "n_pasillos", "pasillo",
+  MAX_ANTECEDENTE_PASILLO
+)
+viabilidad_n_a_uno <- rbindlist(list(viabilidad_producto, viabilidad_pasillo))
+
+cat("\n--- Viabilidad de reglas n => 1 ---\n")
+print(viabilidad_n_a_uno)
+fwrite(viabilidad_n_a_uno,
+       file.path(ruta_salida, "viabilidad_reglas_n_a_1.csv"))
 
 # -------------------------
 # 5. Exploracion muy basica
@@ -217,48 +350,17 @@ dev.off()
 # -------------------------
 # 7. Minar reglas de producto
 # -------------------------
-# maxlen = 2 restringe inicialmente a pares A => B. Es recomendable aprender
-# con pares antes de buscar triples como {A, B} => C, que son mas dificiles de
-# interpretar y producen muchas combinaciones.
-rules_producto <- apriori(
+# Cada antecedente puede tener 1, 2 o 3 productos; el consecuente es siempre
+# un solo producto. Por ejemplo: {A, B} => C, nunca {A, B} => {C, D}.
+rules_producto <- minar_reglas_n_a_uno(
   transacciones_producto,
-  parameter = list(
-    support = SOPORTE_MINIMO_PRODUCTO,
-    confidence = CONFIANZA_MINIMA_PRODUCTO,
-    minlen = 2,
-    maxlen = 2,
-    target = "rules"
-  )
+  soporte = SOPORTE_MINIMO_PRODUCTO,
+  confianza = CONFIANZA_MINIMA_PRODUCTO,
+  max_antecedente = MAX_ANTECEDENTE_PRODUCTO,
+  etiqueta = "producto"
 )
-
-cat("\nNumero de reglas producto => producto:", length(rules_producto), "\n")
-
-if (length(rules_producto) == 0) {
-  message("No se generaron reglas. Pruebe un soporte o confianza menores.")
-} else {
-  # Ordenar por lift prioriza asociaciones por encima de la popularidad base.
-  rules_lift <- sort(rules_producto, by = "lift", decreasing = TRUE)
-  top_reglas_producto <- head(rules_lift, 30)
-  inspect(top_reglas_producto)
-
-  # Exportar permite abrir las reglas en Excel y documentar la interpretacion.
-  reglas_producto_df <- as(top_reglas_producto, "data.frame")
-  fwrite(reglas_producto_df,
-         file.path(ruta_salida, "top_30_reglas_producto_por_lift.csv"))
-
-  # Un segundo listado por soporte privilegia reglas de mayor cobertura.
-  reglas_soporte_df <- as(head(sort(rules_producto, by = "support",
-                                     decreasing = TRUE), 30), "data.frame")
-  fwrite(reglas_soporte_df,
-         file.path(ruta_salida, "top_30_reglas_producto_por_soporte.csv"))
-
-  png(file.path(ruta_salida, "reglas_producto_soporte_lift.png"),
-      width = 1400, height = 900, res = 150)
-  plot(top_reglas_producto, measure = c("support", "lift"),
-       shading = "confidence",
-       main = "Reglas producto-producto: soporte y lift")
-  dev.off()
-}
+exportar_reglas_n_a_uno(rules_producto, "producto",
+                         MAX_ANTECEDENTE_PRODUCTO, ruta_salida)
 
 # Como leer una regla exportada, por ejemplo {A} => {B}:
 # support = P(A interseccion B)
@@ -268,41 +370,31 @@ if (length(rules_producto) == 0) {
 # B aparece con A aproximadamente lo esperable por la popularidad de B.
 
 # -------------------------
-# 8. Repetir a nivel de categoria (pasillo)
+# 8. Repetir a nivel de pasillo
 # -------------------------
 # Una regla de producto puede ser muy especifica. Agrupar en 'aisle' permite
-# hallar patrones mas generales y accionables, por ejemplo frutas => yogurt.
-categorias_por_orden <- items[
-  , .(categorias = list(unique(aisle))),
+# hallar patrones mas generales y accionables. unique(aisle) es esencial: si
+# una orden contiene varias frutas, el pasillo fresh fruits aparece solo una vez.
+pasillos_por_orden <- items[
+  , .(pasillos = list(unique(aisle))),
   by = order_id
 ]
 
-lista_categorias <- setNames(
-  categorias_por_orden$categorias,
-  categorias_por_orden$order_id
+lista_pasillos <- setNames(
+  pasillos_por_orden$pasillos,
+  pasillos_por_orden$order_id
 )
-transacciones_categoria <- as(lista_categorias, "transactions")
+transacciones_pasillo <- as(lista_pasillos, "transactions")
 
-rules_categoria <- apriori(
-  transacciones_categoria,
-  parameter = list(
-    support = SOPORTE_MINIMO_CATEGORIA,
-    confidence = CONFIANZA_MINIMA_CATEGORIA,
-    minlen = 2,
-    maxlen = 2,
-    target = "rules"
-  )
+rules_pasillo <- minar_reglas_n_a_uno(
+  transacciones_pasillo,
+  soporte = SOPORTE_MINIMO_CATEGORIA,
+  confianza = CONFIANZA_MINIMA_CATEGORIA,
+  max_antecedente = MAX_ANTECEDENTE_PASILLO,
+  etiqueta = "pasillo"
 )
-
-cat("\nNumero de reglas categoria => categoria:", length(rules_categoria), "\n")
-
-if (length(rules_categoria) > 0) {
-  top_reglas_categoria <- head(sort(rules_categoria, by = "lift",
-                                    decreasing = TRUE), 30)
-  inspect(top_reglas_categoria)
-  fwrite(as(top_reglas_categoria, "data.frame"),
-         file.path(ruta_salida, "top_30_reglas_categoria_por_lift.csv"))
-}
+exportar_reglas_n_a_uno(rules_pasillo, "pasillo",
+                         MAX_ANTECEDENTE_PASILLO, ruta_salida)
 
 # -------------------------
 # 9. Extension: patron por hora del dia
