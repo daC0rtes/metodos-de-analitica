@@ -99,4 +99,6 @@ El flujo está documentado en [`instacart_apriori_paso_a_paso.R`](instacart_apri
 5. Exporta tablas y gráficos a `salida_apriori/`.
 6. Deja preparada la comparación de patrones por hora del día.
 
+La validación está documentada en [`validar_reglas_con_train.R`](validar_reglas_con_train.R). Este segundo script conserva las reglas aprendidas con `prior`, recalcula sus métricas usando solo `train` y guarda los resultados en `salida_validacion_train/`.
+
 Los datos fuente, los PDFs de clase y los resultados generados se mantienen fuera del repositorio.

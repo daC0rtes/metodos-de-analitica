@@ -99,6 +99,12 @@ exportar_reglas_n_a_uno <- function(reglas, etiqueta, max_antecedente,
     return(invisible(NULL))
   }
 
+  # RDS conserva el objeto rules sin perder nombres complejos de productos.
+  # El script de validación lo usará para evaluar exactamente estas reglas en
+  # order_products__train.csv, sin volver a aprenderlas ni usar texto ambiguo.
+  saveRDS(reglas,
+          file.path(ruta_salida, paste0("reglas_", etiqueta, "_n_a_1.rds")))
+
   # Se exporta cada n por separado: asi se comparan 1=>1, 2=>1 y 3=>1.
   for (n in seq_len(max_antecedente)) {
     reglas_n <- reglas[size(lhs(reglas)) == n]

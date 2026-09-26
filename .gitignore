@@ -1,10 +1,12 @@
 # Datos fuente y resultados generados: se mantienen locales.
 instacart_2017_05_01/
-salida_apriori/
+salida_apriori*/
+salida_validacion_train/
 
 # Historial local de R.
 .Rhistory
 .RData
+.RDataTmp
 
 # Material de clase.
 *.pdf
