@@ -1,0 +1,296 @@
+\documentclass[10pt,letterpaper]{article}
+
+% Documento autocontenido: compila con pdfLaTeX.
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage[letterpaper,margin=2.35cm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,tabularx,array,longtable}
+\usepackage{xcolor,hyperref,enumitem,microtype,caption,float}
+\usepackage{ragged2e}
+\usepackage{fancyhdr}
+
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=blue}
+\setlist[itemize]{leftmargin=*,nosep}
+\setlist[enumerate]{leftmargin=*,nosep}
+\renewcommand{\arraystretch}{1.18}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcommand{\pct}[1]{#1\%}
+\newcommand{\rulex}[2]{\{#1\}\,$\Rightarrow$\,\{#2\}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Taller grupal 1 -- Sistemas de Recomendación}
+\rhead{Instacart}
+\cfoot{\thepage}
+
+\title{\textbf{Sistemas de recomendación basados en reglas de asociación}\\
+\large Taller grupal 1: análisis de canastas de mercado de Instacart}
+\author{Nestor Cortés\\
+\small Pontificia Universidad Javeriana -- Métodos de Analítica}
+\date{2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Este trabajo usa reglas de asociación para estudiar qué productos y qué pasillos aparecen juntos en las canastas de Instacart. La unidad de análisis es una orden: cada orden se transforma en una transacción con los artículos que contiene. Se minan únicamente reglas de la forma $n\rightarrow1$, es decir, uno o varios antecedentes y un solo consecuente. Las reglas se evalúan con soporte, confianza y \textit{lift}; luego se verifican en el conjunto \texttt{train}, separado de las compras históricas usadas para descubrirlas. El resultado principal es que las reglas por pasillo son más interpretables y suficientemente frecuentes para proponer recomendaciones tanto en el canal virtual como en el físico.
+\end{abstract}
+
+\section{Objetivo y preguntas de negocio}
+
+El objetivo es convertir datos de compras históricas en recomendaciones simples, interpretables y verificables. En particular, se busca responder:
+
+\begin{enumerate}
+    \item ¿Qué productos o pasillos se compran conjuntamente con una frecuencia mayor a la esperada por azar?
+    \item ¿Cómo se pueden usar esos patrones para sugerir un producto en la tienda virtual o para organizar promociones y exhibiciones en una tienda física?
+    \item ¿Qué tan estables son los patrones cuando se revisan en órdenes no usadas durante el descubrimiento?
+\end{enumerate}
+
+La recomendación no pretende afirmar causalidad. Si aparece la regla $A\Rightarrow B$, la lectura correcta es: ``dentro de estas canastas, cuando aparece $A$, aumenta la probabilidad observada de que también aparezca $B$''. No significa que comprar $A$ cause comprar $B$.
+
+\section{Datos y construcción de las transacciones}
+
+Se utilizó el conjunto público \textit{3 Million Instacart Orders} \cite{instacart}, que registra órdenes de supermercado y sus líneas de producto. La tabla \texttt{orders.csv} identifica la orden, el usuario, el conjunto al que pertenece (\texttt{prior} o \texttt{train}), el número de orden del usuario, el día de la semana y la hora. Las tablas \texttt{order\_products\_\_prior.csv} y \texttt{order\_products\_\_train.csv} contienen las líneas de cada orden: \texttt{order\_id}, \texttt{product\_id}, \texttt{add\_to\_cart\_order} y \texttt{reordered}.
+
+El campo \texttt{add\_to\_cart\_order} indica en qué posición fue agregado un artículo al carrito; por ejemplo, un valor de 1 fue el primer artículo agregado. Este campo ayuda a describir el proceso de compra, pero no se usó como evidencia de asociación en este análisis básico. Para dar significado comercial a los productos se incorporaron \texttt{products.csv}, \texttt{aisles.csv} y \texttt{departments.csv}.
+
+\subsection{Unidad de análisis}
+
+La unidad no es el cliente sino la \textbf{orden}. Por tanto, cada orden se convierte en una transacción o canasta:
+
+\begin{center}
+\fbox{\parbox{0.88\linewidth}{\centering
+Orden 101: \{banano, limas, limón grande\} \\[2pt]
+Orden 102: \{pasta seca, salsa para pasta, verduras empacadas\}
+}}
+\end{center}
+
+Se crearon dos representaciones de cada orden:
+
+\begin{itemize}
+    \item \textbf{Transacción de productos:} conserva los productos distintos de la orden.
+    \item \textbf{Transacción de pasillos:} reemplaza cada producto por su pasillo y conserva los pasillos distintos. Si una orden tiene varios artículos del pasillo \textit{fresh fruits}, ese pasillo cuenta una sola vez en la transacción de pasillos.
+\end{itemize}
+
+El descubrimiento se hizo sobre una muestra reproducible de 50\,000 órdenes de \texttt{prior}, usando semilla 2026. \texttt{prior} reúne compras históricas y por ello es adecuado para descubrir coocurrencias. \texttt{train} se dejó aparte para revisar si las reglas aparecen de nuevo en órdenes diferentes.
+
+\section{Método: reglas de la forma \texorpdfstring{$n\rightarrow1$}{n a 1}}
+
+Se aplicó el algoritmo Apriori \cite{agrawal} con el paquete \texttt{arules} de R \cite{arules}. El profesor indicó concentrarse en reglas $n\rightarrow1$: el antecedente puede tener uno, dos o tres elementos, pero el consecuente debe contener solamente uno. Por ejemplo:
+
+\begin{center}
+\begin{tabularx}{0.90\linewidth}{lYY}
+\toprule
+Tipo & Regla & Uso potencial \\
+\midrule
+$1\rightarrow1$ & \rulex{pasta seca}{salsa para pasta} & Recomendación directa. \\
+$2\rightarrow1$ & \rulex{pasta seca, verduras empacadas}{salsa para pasta} & Recomendación contextual. \\
+$3\rightarrow1$ & \rulex{frutas, verduras, fríjoles}{vegetales enlatados} & Contexto más específico. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Esta restricción también controla el crecimiento combinatorio. Si una canasta tiene $k$ artículos distintos, para una regla $2\rightarrow2$ habría que considerar $\binom{k}{4}\binom{4}{2}$ asignaciones posibles de cuatro artículos a antecedente y consecuente. Con solo cuatro artículos existen $\binom{4}{2}=6$ reglas $2\rightarrow2$ dirigidas. Al crecer $k$, explorar todas esas combinaciones hace el resultado difícil de filtrar y de explicar. Las reglas $n\rightarrow1$ conservan una acción concreta: recomendar un único artículo.
+
+\subsection{Métricas}
+
+Para una regla $A\Rightarrow B$, donde $A$ es el conjunto antecedente y $B$ el consecuente, se calcularon tres métricas:
+
+\begin{align*}
+\text{soporte}(A\Rightarrow B) &= P(A\cap B),\\
+\text{confianza}(A\Rightarrow B) &= P(B\mid A)=\frac{P(A\cap B)}{P(A)},\\
+\textit{lift}(A\Rightarrow B) &= \frac{P(B\mid A)}{P(B)}.
+\end{align*}
+
+El soporte mide qué tan frecuente es la combinación en todas las órdenes; la confianza responde ``dado $A$, ¿con qué frecuencia aparece $B$?''; y el \textit{lift} compara esa confianza con la probabilidad base de $B$. Un \textit{lift} mayor que 1 indica asociación positiva; cercano a 1 indica independencia aproximada; menor que 1 indica asociación negativa.
+
+\subsection{Filtros de minería}
+
+Se emplearon umbrales diferentes porque los productos son mucho más específicos que los pasillos.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+Nivel & Soporte mínimo & Confianza mínima & Máximo antecedente \\
+\midrule
+Producto & 0,002 & 0,15 & 3 \\
+Pasillo & 0,010 & 0,20 & 3 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Las reglas se ordenaron tanto por \textit{lift} como por soporte. El \textit{lift} permite hallar relaciones interesantes, pero no basta por sí solo: una regla muy alta puede provenir de muy pocas órdenes. Por ello, en las recomendaciones se privilegian reglas con $\textit{lift}>1$, soporte apreciable y validación favorable.
+
+\section{Viabilidad de canastas}
+
+Antes de minar reglas se verificó que las canastas tuvieran suficiente tamaño para antecedentes de más de un elemento. La Tabla \ref{tab:viabilidad} muestra la proporción de las 50\,000 órdenes que permite formar un antecedente de tamaño $n$ y además un consecuente distinto.
+
+\begin{table}[H]
+\centering
+\caption{Órdenes viables para reglas $n\rightarrow1$.}
+\label{tab:viabilidad}
+\begin{tabular}{lrrr}
+\toprule
+Nivel & $1\rightarrow1$ & $2\rightarrow1$ & $3\rightarrow1$ \\
+\midrule
+Producto & \pct{95,24} & \pct{89,36} & \pct{82,98} \\
+Pasillo & \pct{93,87} & \pct{86,01} & \pct{77,17} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+En productos, \pct{82,98} de las órdenes contiene más de tres productos. En pasillos la proporción es \pct{77,17}. Esto confirma que, desde el tamaño de canasta, es posible explorar antecedentes de dos o tres elementos. Sin embargo, viabilidad no equivale a utilidad: las reglas largas deben superar los umbrales y ser legibles para negocio.
+
+\section{Resultados del descubrimiento en \texttt{prior}}
+
+\subsection{Producto a producto: precisión alta, alcance limitado}
+
+Las reglas por producto detectan afinidades muy específicas. Por ejemplo, \rulex{Non Fat Raspberry Yogurt}{Icelandic Style Skyr Blueberry Non-fat Yogurt} tuvo soporte de \pct{0,228}, confianza de \pct{47,90} y \textit{lift} de 77,76 (114 órdenes en la muestra). La magnitud del \textit{lift} señala una afinidad fuerte, pero el soporte bajo muestra que se trata de un patrón de nicho.
+
+Una regla de producto $2\rightarrow1$ más cercana a una acción de carrito fue \rulex{Banana, Limes}{Large Lemon}: soporte \pct{0,262}, confianza \pct{24,40}, \textit{lift} 5,14 y 131 órdenes. La regla dice que, dentro de las órdenes que ya incluyen banano y limas, cerca de una cuarta parte también tiene limón grande; no asegura que la recomendación sea pertinente para cada usuario individual.
+
+\subsection{Pasillo a pasillo: patrones accionables}
+
+Los pasillos agregan productos similares y reducen el problema de datos escasos. La Tabla \ref{tab:prior} contiene ejemplos de reglas descubiertas en \texttt{prior}; los nombres se conservan en inglés porque así vienen en el archivo original.
+
+\begin{table}[H]
+\centering
+\caption{Reglas por pasillo destacadas en \texttt{prior}.}
+\label{tab:prior}
+\scriptsize
+\begin{tabularx}{\linewidth}{YYrrrr}
+\toprule
+Antecedente & Consecuente & Soporte & Confianza & Lift & Órdenes \\
+\midrule
+\texttt{pasta sauce} & \texttt{dry pasta} & \pct{1,938} & \pct{31,78} & 4,47 & 969 \\
+\texttt{dry pasta + packaged vegetables fruits} & \texttt{pasta sauce} & \pct{1,060} & \pct{28,91} & 4,74 & 530 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+La segunda fila anterior se presenta con cuidado: corresponde a los valores disponibles de la extracción inicial de reglas y no es la que se propone como recomendación central. Para la toma de decisiones se prioriza la comprobación en \texttt{train} de la siguiente sección. La fila con \texttt{fresh vegetables + pasta sauce} se completa en la validación porque su lectura es más clara allí.
+
+\section{Validación con \texttt{train}}
+
+Una regla interesante en la muestra \texttt{prior} puede ser un accidente estadístico. Para reducir ese riesgo, las reglas generadas se aplicaron a las transacciones de \texttt{train}; no se volvieron a minar reglas en ese conjunto. Se recalcularon soporte, confianza y \textit{lift} de cada regla sobre esas órdenes. Una regla se consideró positivamente reproducida cuando $\textit{lift}_{train}>1$.
+
+\begin{table}[H]
+\centering
+\caption{Resumen de validación en \texttt{train}.}
+\label{tab:validacion}
+\scriptsize
+\begin{tabular}{lrrrr}
+\toprule
+Nivel & Reglas & Confianza prior & Confianza train & Lift train $>1$ \\
+\midrule
+Producto $1\rightarrow1$ & 345 & \pct{21,72} & \pct{21,77} & \pct{99,42} \\
+Producto $2\rightarrow1$ & 65 & \pct{27,52} & \pct{28,39} & \pct{96,92} \\
+Pasillo $1\rightarrow1$ & 634 & \pct{38,40} & \pct{39,05} & \pct{96,85} \\
+Pasillo $2\rightarrow1$ & 2637 & \pct{49,08} & \pct{50,02} & \pct{99,92} \\
+Pasillo $3\rightarrow1$ & 2292 & \pct{56,66} & \pct{57,86} & \pct{100,00} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La estabilidad agregada es alta. En especial, las reglas de pasillo $2\rightarrow1$ mantienen una confianza media cercana a \pct{50} y \pct{99,92} de ellas conserva un \textit{lift} superior a 1. Esta es una validación de reproducibilidad en otra partición temporal/lógica de las órdenes disponibles; no equivale a un experimento causal ni a una medición de conversión de una recomendación mostrada al cliente.
+
+\subsection{Reglas seleccionadas para recomendar}
+
+La Tabla \ref{tab:reglas-finales} resume reglas de pasillo que combinan interpretación sencilla, soporte suficiente y replicación en \texttt{train}.
+
+\begin{table}[H]
+\centering
+\caption{Reglas de pasillo verificadas en \texttt{train}.}
+\label{tab:reglas-finales}
+\scriptsize
+\begin{tabularx}{\linewidth}{YYrrr}
+\toprule
+Antecedente & Consecuente & Soporte train & Confianza train & Lift train \\
+\midrule
+\texttt{pasta sauce} & \texttt{dry pasta} & \pct{2,216} & \pct{32,97} & 4,54 \\
+\texttt{dry pasta + packaged vegetables fruits} & \texttt{pasta sauce} & \pct{1,268} & \pct{32,47} & 4,83 \\
+\texttt{fresh vegetables + pasta sauce} & \texttt{dry pasta} & \pct{1,495} & \pct{33,13} & 4,56 \\
+\texttt{frozen pizza} & \texttt{frozen meals} & \pct{1,229} & \pct{25,08} & 3,05 \\
+\texttt{canned meals beans + fresh fruits + fresh vegetables} & \texttt{canned jarred vegetables} & \pct{1,265} & \pct{29,99} & 3,90 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+La regla $3\rightarrow1$ se conserva como evidencia de que los contextos más ricos pueden ser estables. Aun así, para una primera implementación se recomienda priorizar $1\rightarrow1$ y $2\rightarrow1$: requieren menos condiciones, alcanzan más carritos y son más fáciles de comunicar.
+
+\section{Propuesta de uso en los canales}
+
+\subsection{Tienda virtual}
+
+En el carrito o en la página de producto se puede usar una lógica condicional y transparente:
+
+\begin{itemize}
+    \item Si el carrito contiene un artículo del pasillo \texttt{pasta sauce}, sugerir un artículo del pasillo \texttt{dry pasta}.
+    \item Si contiene \texttt{dry pasta} y \texttt{packaged vegetables fruits}, sugerir \texttt{pasta sauce}. El antecedente doble evita mostrar la recomendación a todos los compradores de pasta y la hace más contextual.
+    \item Si contiene \texttt{frozen pizza}, mostrar una alternativa complementaria de \texttt{frozen meals}, siempre dejando claro que es una sugerencia y no una necesidad.
+\end{itemize}
+
+La priorización debería usar primero la regla con mayor \textit{lift} validado y, en caso de empate, mayor soporte. En producción convendría excluir productos ya presentes en la canasta y controlar cuántas sugerencias se muestran para no saturar al usuario.
+
+\subsection{Tienda física}
+
+Los mismos patrones pueden orientar decisiones agregadas, no personalizadas:
+
+\begin{itemize}
+    \item Crear señalización cruzada entre salsa y pasta seca, o una cabecera promocional de ``noche de pasta''.
+    \item Diseñar exhibiciones o cupones combinados para pasta seca, verduras empacadas y salsa.
+    \item Ubicar comunicación complementaria cerca de pizza congelada para hacer visible la categoría de comidas congeladas.
+\end{itemize}
+
+La ubicación física no debe deducirse mecánicamente de una regla. Antes de cambiar planogramas se requiere revisar margen, inventario, espacio disponible y realizar una prueba controlada por tiendas o semanas.
+
+\section{Otros hallazgos y extensiones posibles}
+
+Los archivos también permiten ampliar el análisis más allá de la coocurrencia:
+
+\begin{itemize}
+    \item \textbf{Hora y día:} \texttt{order\_hour\_of\_day} y \texttt{order\_dow} permitirían comparar reglas por franja horaria o día, usando soporte de intersección, por ejemplo $P(\text{pasta}\cap\text{salsa}\cap\text{noche})$.
+    \item \textbf{Recompra:} \texttt{reordered} puede ayudar a distinguir productos de rutina de productos de descubrimiento.
+    \item \textbf{Secuencia:} \texttt{order\_number} y la historia por \texttt{user\_id} permitirían estudiar compras repetidas o modelos colaborativos. Ese sería otro enfoque: en lugar de ``productos juntos en una orden'', se compararían usuarios con historiales similares.
+    \item \textbf{Evaluación de negocio:} una siguiente fase debería medir clic, adición al carrito, conversión y margen incremental mediante una prueba A/B.
+\end{itemize}
+
+\section{Limitaciones}
+
+\begin{itemize}
+    \item El descubrimiento usa una muestra de 50\,000 órdenes \texttt{prior}; los resultados pueden cambiar con el universo completo o con otros umbrales.
+    \item Las reglas indican asociación, no causalidad ni preferencia individual. Una alta confianza no garantiza que una sugerencia sea útil para cada cliente.
+    \item Instacart no aporta en este conjunto el precio, margen, inventario, ubicación física ni exposición previa a promociones; por ello no se puede calcular impacto económico directo.
+    \item La validación con \texttt{train} confirma estabilidad descriptiva, pero no reemplaza una prueba de intervención en la interfaz o en la tienda.
+    \item La agregación por pasillo mejora el soporte y la interpretación, pero puede ocultar diferencias entre productos concretos del mismo pasillo.
+\end{itemize}
+
+\section{Conclusión}
+
+El análisis muestra que las reglas de asociación $n\rightarrow1$ son una forma clara de pasar de una canasta histórica a una recomendación condicionada. El flujo fue: tomar líneas de orden, convertir cada orden en transacción, calcular soporte/confianza/\textit{lift}, filtrar reglas interpretables y comprobarlas en \texttt{train}. Las reglas por producto descubren afinidades de nicho; las reglas por pasillo, especialmente $1\rightarrow1$ y $2\rightarrow1$, ofrecen el mejor equilibrio entre alcance, claridad y aplicabilidad. Una implementación responsable debe tratarlas como hipótesis de recomendación y medir su efecto real con experimentación.
+
+\appendix
+\section{Reproducibilidad}
+
+El proyecto se desarrolló en R y conserva dos scripts principales:
+
+\begin{itemize}
+    \item \texttt{instacart\_apriori\_paso\_a\_paso.R}: prepara las tablas, construye transacciones de productos y pasillos, calcula la viabilidad de canastas y mina las reglas $n\rightarrow1$.
+    \item \texttt{validar\_reglas\_con\_train.R}: toma las reglas guardadas, construye transacciones desde \texttt{order\_products\_\_train.csv} y recalcula las métricas de validación.
+\end{itemize}
+
+Los archivos de salida incluyen las reglas ordenadas por \textit{lift} y soporte, el resumen de viabilidad y el resumen de validación. La semilla 2026 permite repetir la muestra de \texttt{prior} usada en el descubrimiento.
+
+\begin{thebibliography}{9}
+\bibitem{instacart}
+Instacart (2017). \textit{The Instacart Online Grocery Shopping Dataset 2017}. Disponible en \url{https://www.instacart.com/datasets/grocery-shopping-2017}.
+
+\bibitem{agrawal}
+R. Agrawal y R. Srikant (1994). Fast algorithms for mining association rules. \textit{Proceedings of the 20th International Conference on Very Large Data Bases}.
+
+\bibitem{arules}
+M. Hahsler, B. Grün y K. Hornik (2005). arules -- A computational environment for mining association rules and frequent item sets. \textit{Journal of Statistical Software}, 14(15).
+\end{thebibliography}
+
+\end{document}
