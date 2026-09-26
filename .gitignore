@@ -1,0 +1,10 @@
+# Datos fuente y resultados generados: se mantienen locales.
+instacart_2017_05_01/
+salida_apriori/
+
+# Historial local de R.
+.Rhistory
+.RData
+
+# Material de clase.
+*.pdf
