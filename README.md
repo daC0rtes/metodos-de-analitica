@@ -5,7 +5,7 @@ Proyecto para el Taller grupal 1, basado en las transacciones de Instacart. El p
 ## Objetivos
 
 - Identificar qué productos o categorías aparecen juntos en una misma canasta de compra.
-- Estimar la probabilidad de recomendar un producto B cuando el cliente ya escogió A: \(P(B\mid A)\).
+- Estimar la probabilidad de recomendar un producto B cuando el cliente ya escogió A: $P(B \mid A)$.
 - Traducir los patrones encontrados en acciones para tienda virtual, tienda física, promociones y combos.
 - Comparar reglas simples (1 a 1) con combinaciones más ricas (2 a 1 y 2 a 2), manteniendo resultados interpretables.
 
@@ -20,21 +20,21 @@ Si un cliente agrega leche a su carrito, ¿conviene sugerir cereal? La respuesta
 
 Una regla se escribe así:
 
-\[
+$$
 \{A\} \rightarrow \{B\}
-\]
+$$
 
 Se lee: “cuando A aparece en la canasta, B es una recomendación posible”. No afirma que A cause B ni que A se haya comprado antes; es una regla predictiva basada en la canasta observada.
 
 ## Métricas que usaremos
 
-Para una regla \(A\rightarrow B\):
+Para una regla $A \rightarrow B$:
 
 | Métrica | Fórmula | Interpretación |
 |---|---|---|
-| Soporte | \(P(A\cap B)\) | Proporción de canastas que contienen A y B. |
-| Confianza | \(P(B\mid A)\) | Entre quienes tienen A, proporción que también tiene B. |
-| Lift | \(P(B\mid A) / P(B)\) | Cuánto mejora la probabilidad de B al observar A. |
+| Soporte | $P(A \cap B)$ | Proporción de canastas que contienen A y B. |
+| Confianza | $P(B \mid A)$ | Entre quienes tienen A, proporción que también tiene B. |
+| Lift | $P(B \mid A) / P(B)$ | Cuánto mejora la probabilidad de B al observar A. |
 
 Un lift mayor que 1 indica asociación positiva. Aun así, una regla debe tener soporte suficiente: una asociación hallada en muy pocas canastas no es una recomendación comercial confiable.
 
@@ -42,21 +42,21 @@ Un lift mayor que 1 indica asociación positiva. Aun así, una regla debe tener 
 
 | Tipo de regla | Ejemplo | Uso posible |
 |---|---|---|
-| 1→1 | \(\{\text{leche}\}\rightarrow\{\text{cereal}\}\) | Recomendación directa en el carrito. |
-| 2→1 | \(\{\text{leche, cereal}\}\rightarrow\{\text{banano}\}\) | Recomendación contextual. |
-| 2→2 | \(\{\text{pasta, salsa}\}\rightarrow\{\text{queso, vino}\}\) | Combo, promoción o exhibición conjunta. |
+| 1→1 | $\{\text{leche}\}\rightarrow\{\text{cereal}\}$ | Recomendación directa en el carrito. |
+| 2→1 | $\{\text{leche, cereal}\}\rightarrow\{\text{banano}\}$ | Recomendación contextual. |
+| 2→2 | $\{\text{pasta, salsa}\}\rightarrow\{\text{queso, vino}\}$ | Combo, promoción o exhibición conjunta. |
 
 Una canasta debe tener al menos dos productos para analizar 1→1, tres para 2→1 y cuatro para 2→2.
 
 ## El problema de combinatoria
 
-Las combinaciones son interesantes, pero crecen muy rápido. Con cuatro productos distintos \(\{A,B,C,D\}\), se pueden construir seis reglas dirigidas de tipo 2→2:
+Las combinaciones son interesantes, pero crecen muy rápido. Con cuatro productos distintos $\{A,B,C,D\}$, se pueden construir seis reglas dirigidas de tipo 2→2:
 
-\[
+$$
 \{A,B\}\rightarrow\{C,D\},\quad
 \{A,C\}\rightarrow\{B,D\},\quad
 \{A,D\}\rightarrow\{B,C\}
-\]
+$$
 
 y sus tres reglas en dirección contraria.
 
