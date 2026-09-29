@@ -40,7 +40,8 @@
 \vspace{0.45cm}
 
 \begin{center}
-    {\large\textbf{Sistemas de recomendación: reglas de asociación en Instacart}}\\[0.30cm]
+    {\large\textbf{Estrategia de recomendaciones para Instacart}}\\[0.10cm]
+    {\normalsize\textit{Reglas de asociación $n\rightarrow1$ para tienda virtual y física}}\\[0.30cm]
     {\normalsize Nestor Fandiño\textsuperscript{a,c}}\\[0.12cm]
     {\normalsize Diego Alejandro Cortes Suarez\textsuperscript{a,c}}\\[0.12cm]
     {\normalsize Andres Rodriguez Torres\textsuperscript{b,c}}\\[0.18cm]
@@ -50,97 +51,98 @@
     \textsuperscript{c}\textit{Pontificia Universidad Javeriana, Bogotá, Colombia}}
 \end{center}
 
-\vspace{0.30cm}
+\vspace{0.25cm}
 
-\section*{1. ¿Qué hicimos?}
+\section*{1. Punto de partida}
 
-Tomamos 50\,000 órdenes históricas de Instacart y tratamos cada orden como una canasta. Después buscamos patrones del tipo $n\rightarrow1$: uno, dos o tres productos/pasillos que aparecen en la canasta y un único elemento que se puede recomendar.
+Analizamos 50\,000 órdenes históricas de Instacart y validamos las reglas en el conjunto \texttt{train}. Trabajamos reglas de la forma $n\rightarrow1$: una canasta con uno, dos o tres antecedentes activa la sugerencia de un único producto o pasillo consecuente.
 
-Ejemplo: si una canasta tiene \texttt{dry pasta} y \texttt{packaged vegetables fruits}, podemos evaluar si conviene sugerir \texttt{pasta sauce}. No estamos diciendo que la pasta o las verduras \emph{causen} la compra de salsa; solo que, en los datos, aparecen juntas más de lo esperado.
+La selección se concentra en reglas con \textit{lift} mayor que 1 y validado. El \textit{lift} es el criterio principal porque identifica combinaciones que aparecen con una frecuencia mayor a la esperada. Soporte y confianza se usan como controles para evitar decisiones basadas en combinaciones demasiado escasas.
 
-Trabajamos dos niveles:
-\begin{itemize}
-    \item \textbf{Producto $\rightarrow$ producto:} más específico, pero con menos casos por combinación.
-    \item \textbf{Pasillo $\rightarrow$ pasillo:} más general y más útil para decisiones de tienda, porque agrupa artículos similares.
-\end{itemize}
+\section*{2. Ocasiones de compra identificadas}
 
-\section*{2. La métrica que guía las decisiones: lift}
-
-Para una regla $A\Rightarrow B$, el \textit{lift} compara la probabilidad de comprar $B$ cuando ya está $A$ en la canasta con la probabilidad normal de comprar $B$:
-\[
-\textit{lift}(A\Rightarrow B)=\frac{P(B\mid A)}{P(B)}.
-\]
-
-\begin{center}
-\begin{tabular}{cl}
-\toprule
-Lift & Lectura práctica \\
-\midrule
-$>1$ & Hay asociación positiva: $B$ aparece más de lo normal cuando está $A$. \\
-$=1$ & No hay ganancia clara: la compra de $A$ no cambia la probabilidad de $B$. \\
-$<1$ & La combinación aparece menos de lo esperado. \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-El soporte y la confianza siguen siendo controles: el soporte dice cuántas veces vemos la regla y la confianza qué proporción de las canastas con $A$ también tiene $B$. Pero el \textit{lift} es el centro del análisis: evita recomendar un producto solo porque es popular. Si el \textit{lift} es cercano a 1, la recomendación no aporta mucho.
-
-\section*{3. ¿Se pueden usar reglas $n\rightarrow1$?}
-
-Sí. Las canastas tienen tamaño suficiente para explorar antecedentes de hasta tres elementos:
-\begin{center}
-\begin{tabular}{lrrr}
-\toprule
-Nivel & $1\rightarrow1$ & $2\rightarrow1$ & $3\rightarrow1$ \\
-\midrule
-Productos & \pct{95,24} & \pct{89,36} & \pct{82,98} \\
-Pasillos & \pct{93,87} & \pct{86,01} & \pct{77,17} \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-Usamos $1\rightarrow1$ y $2\rightarrow1$ como resultados principales porque son fáciles de activar en un carrito y de explicar. Las reglas $3\rightarrow1$ también funcionan, pero requieren demasiado contexto para una primera recomendación.
-
-\section*{4. Resultados: reglas que sí sugieren una acción}
-
-Las siguientes reglas se descubrieron en órdenes históricas y se revisaron de nuevo en \texttt{train}, un conjunto diferente. El \textit{lift} de la tabla es el de validación: la señal se mantiene fuera de las órdenes que se usaron para descubrirla.
+En lugar de presentar muchas reglas parecidas, agrupamos los resultados en ocasiones de compra. Las métricas corresponden a la validación en \texttt{train}.
 
 \begin{table}[H]
 \centering
-\caption{Reglas de pasillo recomendadas.}
+\caption{Reglas seleccionadas por ocasión de compra.}
 \scriptsize
-\begin{tabularx}{\linewidth}{YYrrrY}
+\begin{tabularx}{\linewidth}{Y Y rrr}
 \toprule
-Si la canasta contiene... & Sugerir... & Soporte & Confianza & Lift & ¿Qué hacer? \\
+Ocasión & Regla $n\rightarrow1$ & Soporte & Confianza & Lift \\
 \midrule
-\texttt{pasta sauce} & \texttt{dry pasta} & \pct{2,216} & \pct{32,97} & \textbf{4,54} & Sugerir pasta seca en el carrito; crear una exhibición conjunta. \\
-\texttt{dry pasta + packaged vegetables fruits} & \texttt{pasta sauce} & \pct{1,268} & \pct{32,47} & \textbf{4,83} & Mostrar salsa como recomendación contextual: es la regla más fuerte de la tabla. \\
-\texttt{fresh vegetables + pasta sauce} & \texttt{dry pasta} & \pct{1,495} & \pct{33,13} & \textbf{4,56} & Activar sugerencia de pasta cuando la canasta ya parece una comida completa. \\
-\texttt{frozen pizza} & \texttt{frozen meals} & \pct{1,229} & \pct{25,08} & \textbf{3,05} & Probar una recomendación complementaria en congelados. \\
-\texttt{canned meals beans + fresh fruits + fresh vegetables} & \texttt{canned jarred vegetables} & \pct{1,265} & \pct{29,99} & \textbf{3,90} & Usarla como regla avanzada; no como primera recomendación. \\
+Cena de pasta & \texttt{dry pasta + packaged vegetables fruits} $\Rightarrow$ \texttt{pasta sauce} & \pct{1,27} & \pct{32,47} & \textbf{4,83} \\
+Cocina fresca & \texttt{fresh vegetables + spices seasonings} $\Rightarrow$ \texttt{fresh herbs} & \pct{1,30} & \pct{32,73} & \textbf{3,38} \\
+Desayuno saludable & \texttt{granola} $\Rightarrow$ \texttt{yogurt} & \pct{1,51} & \pct{57,70} & \textbf{2,28} \\
+Desayuno de panadería & \texttt{breakfast bakery} $\Rightarrow$ \texttt{other creams cheeses} & \pct{1,61} & \pct{23,82} & \textbf{2,70} \\
+Picada & \texttt{preserved dips spreads} $\Rightarrow$ \texttt{chips pretzels} & \pct{1,65} & \pct{45,03} & \textbf{2,55} \\
+Sándwich & \texttt{bread + packaged cheese} $\Rightarrow$ \texttt{lunch meat} & \pct{1,90} & \pct{30,90} & \textbf{2,85} \\
+Comida rápida & \texttt{tortillas flat bread} $\Rightarrow$ \texttt{packaged cheese} & \pct{2,79} & \pct{46,70} & \textbf{1,96} \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\textbf{Cómo leer el mejor resultado.} La regla \texttt{dry pasta + packaged vegetables fruits} $\Rightarrow$ \texttt{pasta sauce} tiene un \textit{lift} de 4,83. Esto significa que, cuando se observan pasta seca y verduras empacadas en la misma canasta, la compra de salsa es aproximadamente 4,83 veces más probable que para una canasta cualquiera. Por eso es una buena candidata para mostrar salsa, siempre que el producto no esté ya en el carrito.
+La regla con mayor asociación es \texttt{dry pasta + packaged vegetables fruits} $\Rightarrow$ \texttt{pasta sauce}: cuando la canasta contiene pasta seca y verduras empacadas, la compra de salsa es 4,83 veces más probable que en una canasta cualquiera. Sin embargo, la estrategia no se limita a pasta: los resultados también permiten actuar en desayuno, picada, sándwich, comida rápida y cocina fresca.
 
-\section*{5. Producto versus pasillo}
+\section*{3. Estrategia para la tienda virtual}
 
-También encontramos reglas muy fuertes por producto. Por ejemplo, \texttt{Banana + Limes} $\Rightarrow$ \texttt{Large Lemon} tuvo \textit{lift} de 5,14. Estas reglas pueden servir para recomendaciones muy específicas, pero suelen tener menos observaciones: en ese caso fueron 131 órdenes de las 50\,000 analizadas.
+La tienda virtual debe mostrar una sola sugerencia relevante cuando se cumpla el antecedente. La sugerencia se elige por mayor \textit{lift}; si dos reglas aplican, se prioriza la de mayor soporte. Nunca se recomienda un artículo que ya está en el carrito.
 
-Por esta razón, proponemos usar los pasillos para la recomendación base y dejar las reglas de producto como una segunda capa, cuando el carrito ya contiene los artículos exactos del antecedente. Así evitamos depender de relaciones de nicho, aunque tengan un \textit{lift} alto.
+\begin{table}[H]
+\centering
+\caption{Activaciones propuestas para el carrito virtual.}
+\scriptsize
+\begin{tabularx}{\linewidth}{Y Y Y}
+\toprule
+Disparador en el carrito & Mensaje o sugerencia & Decisión \\
+\midrule
+Pasta seca + verduras empacadas, sin salsa & ``Completa tu cena: agrega una salsa para pasta'' & Mostrar 1--3 salsas disponibles y de buen margen. \\
+Verduras frescas + condimentos, sin hierbas & ``Completa tu receta con hierbas frescas'' & Mostrar albahaca, cilantro o perejil según inventario. \\
+Granola, sin yogur & ``Combina tu granola con yogur'' & Mostrar yogur individual o griego disponible. \\
+Dip o spread, sin chips/pretzels & ``Completa tu picada'' & Mostrar chips o pretzels como complemento. \\
+Pan + queso empacado, sin carne fría & ``Arma tu sándwich'' & Mostrar jamón o carne fría. \\
+Tortillas, sin queso empacado & ``Prepara quesadillas o wraps'' & Mostrar queso empacado. \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
-\section*{6. Qué haríamos con estos resultados}
+\section*{4. Estrategia para la tienda física}
+
+Las mismas asociaciones se traducen en ubicación, exhibición secundaria y promociones cruzadas. No proponemos cambiar toda la distribución de la tienda: proponemos pruebas comerciales focalizadas en cada ocasión.
+
+\begin{table}[H]
+\centering
+\caption{Acciones concretas para tienda física.}
+\scriptsize
+\begin{tabularx}{\linewidth}{Y Y Y}
+\toprule
+Ocasión & Acción en tienda & Promoción o comunicación \\
+\midrule
+Cena de pasta & Punta de góndola con pasta seca, salsa y verduras empacadas. & ``Cena rápida'': descuento en salsa al comprar pasta; alternativa ``lleva 2 de 3''. \\
+Cocina fresca & Exhibidor pequeño de hierbas frescas junto a verduras y condimentos. & Señal: ``Completa tu receta con albahaca, cilantro o perejil''. \\
+Desayuno saludable & Yogures individuales o griegos cerca de la granola. & Combo granola + yogur o descuento en la segunda categoría. \\
+Desayuno de panadería & Queso crema y untables cerca de panadería. & Señal: ``Completa tu desayuno''. \\
+Picada & Dips, spreads, chips y pretzels en la misma exhibición secundaria. & Combo ``dip + snack'' o descuento cruzado al llevar ambos. \\
+Sándwich & Zona secundaria con pan, queso empacado y carnes frías. & Señal: ``Arma tu sándwich''; promoción al llevar las tres categorías. \\
+Comida rápida & Queso empacado cerca de tortillas o pan plano. & Señal: ``Quesadillas y wraps en minutos''. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section*{5. Priorización de implementación}
 
 \begin{enumerate}
-    \item \textbf{Tienda virtual:} cuando se cumpla un antecedente, mostrar un solo producto del pasillo consecuente. Priorizar reglas con mayor \textit{lift}; si hay empate, usar mayor soporte. No mostrar productos que ya estén en el carrito.
-    \item \textbf{Tienda física:} usar las reglas de pasta, salsa y verduras para señalización, promociones o exhibiciones cercanas. El resultado sirve como hipótesis para una prueba, no como orden automática de mover productos.
-    \item \textbf{Medición:} comparar una versión con recomendación contra otra sin recomendación y medir adiciones al carrito, compras y margen. Un \textit{lift} alto en datos históricos es una buena señal, pero no prueba por sí solo que la recomendación aumente ventas.
+    \item \textbf{Primera prueba:} lanzar ``Cena de pasta'' en virtual y físico. Tiene el mayor \textit{lift} (4,83) y una acción muy clara: sugerir o acercar salsa cuando aparecen pasta y verduras.
+    \item \textbf{Segunda prueba:} lanzar ``Picada'' y ``Sándwich''. Son fáciles de entender, permiten promociones cruzadas y tienen reglas validadas con \textit{lift} de 2,55 y 2,85.
+    \item \textbf{Tercera prueba:} activar desayuno saludable y cocina fresca. Funcionan como recomendaciones de complemento, no como promociones agresivas.
+    \item \textbf{Reglas $3\rightarrow1$:} conservarlas como hallazgo analítico. Por ejemplo, la combinación de comidas/enlatados, frutas y verduras predice vegetales enlatados con \textit{lift} 3,90, pero requiere tres condiciones y no es prioritaria para la primera implementación.
 \end{enumerate}
 
-\section*{7. Cierre}
+Cada acción debe probarse durante un periodo definido frente a una tienda, grupo de usuarios o semana sin intervención. Se deben comparar ventas de la categoría sugerida, porcentaje de canastas que completan la ocasión y margen. El \textit{lift} respalda la afinidad histórica; la prueba comercial confirma si la exhibición o recomendación genera ventas adicionales.
 
-El resultado útil no es una lista larga de combinaciones, sino una regla de decisión: recomendamos cuando el \textit{lift} es claramente mayor que 1, la regla aparece suficientes veces y tiene sentido comercial. En esta muestra, las reglas por pasillo $1\rightarrow1$ y $2\rightarrow1$ son las más adecuadas para empezar: tienen \textit{lift} entre 3,05 y 4,83, son fáciles de entender y se mantuvieron al validarlas en \texttt{train}.
+\section*{6. Conclusión}
+
+Las reglas $n\rightarrow1$ permiten pasar de datos de canastas a decisiones comerciales específicas. La recomendación no es ``mostrar productos relacionados'' de forma genérica: es activar una sugerencia, una exhibición o una promoción cuando se reconoce una ocasión concreta de compra. La estrategia propuesta empieza con pasta, picada y sándwich, y luego amplía a desayuno y cocina fresca. Esta priorización combina las reglas con mayor \textit{lift} validado con acciones que una tienda realmente puede ejecutar.
 
 \vspace{0.25cm}
 \begin{thebibliography}{9}
