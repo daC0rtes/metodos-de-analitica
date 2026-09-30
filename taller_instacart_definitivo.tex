@@ -53,13 +53,31 @@
 
 \vspace{0.25cm}
 
-\section*{1. Punto de partida}
+Este informe sigue las seis fases de CRISP-DM: entendimiento del negocio, entendimiento y preparación de datos, modelado, evaluación y despliegue. El énfasis se mantiene en convertir los resultados en decisiones de recomendación, promoción y exhibición.
 
-Analizamos 50\,000 órdenes históricas de Instacart y validamos las reglas en el conjunto \texttt{train}. Trabajamos reglas de la forma $n\rightarrow1$: una canasta con uno, dos o tres antecedentes activa la sugerencia de un único producto o pasillo consecuente.
+\section*{1. Business Understanding}
 
-La selección se concentra en reglas con \textit{lift} mayor que 1 y validado. El \textit{lift} es el criterio principal porque identifica combinaciones que aparecen con una frecuencia mayor a la esperada. Soporte y confianza se usan como controles para evitar decisiones basadas en combinaciones demasiado escasas.
+El objetivo de negocio es identificar productos y pasillos que se compran juntos para activar recomendaciones en la tienda virtual y decisiones de exhibición o promoción en la tienda física. Buscamos recomendaciones accionables, no solo combinaciones frecuentes.
 
-\section*{2. Ocasiones de compra identificadas}
+La propuesta se concentra en reglas de la forma $n\rightarrow1$: uno, dos o tres antecedentes activan la sugerencia de un único consecuente. El criterio principal de selección es el \textit{lift}, porque permite priorizar relaciones con una afinidad mayor a la esperada.
+
+\section*{2. Data Understanding}
+
+Usamos el conjunto de Instacart. \texttt{orders.csv} identifica la orden, el cliente, la hora y el día; \texttt{order\_products\_\_prior.csv} contiene las líneas de las compras históricas; \texttt{order\_products\_\_train.csv} contiene órdenes separadas para validación. Finalmente, \texttt{products.csv}, \texttt{aisles.csv} y \texttt{departments.csv} permiten traducir cada producto a un pasillo y departamento.
+
+La unidad de análisis es una \textbf{orden}: una orden equivale a una canasta. Esto permite observar qué elementos están juntos durante una misma compra, sin asumir que un producto causa la compra del otro.
+
+\section*{3. Data Preparation}
+
+Se tomó una muestra reproducible de 50\,000 órdenes de \texttt{prior} (semilla 2026). Cada orden se convirtió en dos transacciones: una de productos distintos y otra de pasillos distintos. En la segunda, varios productos del mismo pasillo cuentan una sola vez. El conjunto \texttt{train} no se utilizó para descubrir reglas: se reservó para comprobar si estas se mantenían en órdenes diferentes.
+
+El tamaño de las canastas permitió trabajar antecedentes de hasta tres elementos. Por ejemplo, \pct{89,36} de las órdenes de producto y \pct{86,01} de las de pasillo permiten formar reglas $2\rightarrow1$.
+
+\section*{4. Modeling}
+
+Se aplicó Apriori para minar reglas $n\rightarrow1$. Para productos se usó soporte mínimo 0,002 y confianza mínima 0,15; para pasillos, soporte mínimo 0,010 y confianza mínima 0,20. Se calcularon soporte, confianza y \textit{lift}, pero la priorización se hizo con $\textit{lift}>1$ y con evidencia suficiente de soporte.
+
+\section*{5. Evaluation}
 
 En lugar de presentar muchas reglas parecidas, agrupamos los resultados en ocasiones de compra. Las métricas corresponden a la validación en \texttt{train}.
 
@@ -84,7 +102,9 @@ Comida rápida & \texttt{tortillas flat bread} $\Rightarrow$ \texttt{packaged ch
 
 La regla con mayor asociación es \texttt{dry pasta + packaged vegetables fruits} $\Rightarrow$ \texttt{pasta sauce}: cuando la canasta contiene pasta seca y verduras empacadas, la compra de salsa es 4,83 veces más probable que en una canasta cualquiera. Sin embargo, la estrategia no se limita a pasta: los resultados también permiten actuar en desayuno, picada, sándwich, comida rápida y cocina fresca.
 
-\section*{3. Estrategia para la tienda virtual}
+La validación confirmó que los patrones no dependen solo de la muestra inicial: \pct{96,85} de las 634 reglas de pasillo $1\rightarrow1$, \pct{99,92} de las 2\,637 reglas $2\rightarrow1$ y el 100\% de las 2\,292 reglas $3\rightarrow1$ conservaron un \textit{lift} mayor que 1 en \texttt{train}. Por ello, las reglas seleccionadas se usan como hipótesis comerciales viables.
+
+\section*{6. Deployment: estrategia para la tienda virtual}
 
 La tienda virtual debe mostrar una sola sugerencia relevante cuando se cumpla el antecedente. La sugerencia se elige por mayor \textit{lift}; si dos reglas aplican, se prioriza la de mayor soporte. Nunca se recomienda un artículo que ya está en el carrito.
 
@@ -106,7 +126,7 @@ Tortillas, sin queso empacado & ``Prepara quesadillas o wraps'' & Mostrar queso 
 \end{tabularx}
 \end{table}
 
-\section*{4. Estrategia para la tienda física}
+\section*{7. Deployment: estrategia para la tienda física}
 
 Las mismas asociaciones se traducen en ubicación, exhibición secundaria y promociones cruzadas. No proponemos cambiar toda la distribución de la tienda: proponemos pruebas comerciales focalizadas en cada ocasión.
 
@@ -129,7 +149,7 @@ Comida rápida & Queso empacado cerca de tortillas o pan plano. & Señal: ``Ques
 \end{tabularx}
 \end{table}
 
-\section*{5. Priorización de implementación}
+\section*{8. Deployment: priorización y medición}
 
 \begin{enumerate}
     \item \textbf{Primera prueba:} lanzar ``Cena de pasta'' en virtual y físico. Tiene el mayor \textit{lift} (4,83) y una acción muy clara: sugerir o acercar salsa cuando aparecen pasta y verduras.
@@ -140,7 +160,7 @@ Comida rápida & Queso empacado cerca de tortillas o pan plano. & Señal: ``Ques
 
 Cada acción debe probarse durante un periodo definido frente a una tienda, grupo de usuarios o semana sin intervención. Se deben comparar ventas de la categoría sugerida, porcentaje de canastas que completan la ocasión y margen. El \textit{lift} respalda la afinidad histórica; la prueba comercial confirma si la exhibición o recomendación genera ventas adicionales.
 
-\section*{6. Conclusión}
+\section*{9. Conclusión}
 
 Las reglas $n\rightarrow1$ permiten pasar de datos de canastas a decisiones comerciales específicas. La recomendación no es ``mostrar productos relacionados'' de forma genérica: es activar una sugerencia, una exhibición o una promoción cuando se reconoce una ocasión concreta de compra. La estrategia propuesta empieza con pasta, picada y sándwich, y luego amplía a desayuno y cocina fresca. Esta priorización combina las reglas con mayor \textit{lift} validado con acciones que una tienda realmente puede ejecutar.
 
@@ -148,6 +168,7 @@ Las reglas $n\rightarrow1$ permiten pasar de datos de canastas a decisiones come
 \begin{thebibliography}{9}
 \bibitem{instacart} Instacart (2017). \textit{The Instacart Online Grocery Shopping Dataset 2017}. \url{https://www.instacart.com/datasets/grocery-shopping-2017}.
 \bibitem{agrawal} R. Agrawal y R. Srikant (1994). Fast algorithms for mining association rules. \textit{Proceedings of the 20th International Conference on Very Large Data Bases}.
+\bibitem{crispdm} P. Chapman et al. (2000). \textit{CRISP-DM 1.0: Step-by-step data mining guide}.
 \end{thebibliography}
 
 \end{document}
