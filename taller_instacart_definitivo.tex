@@ -93,14 +93,14 @@ Cena de pasta & \texttt{dry pasta + packaged vegetables fruits} $\Rightarrow$ \t
 Cocina fresca & \texttt{fresh vegetables + spices seasonings} $\Rightarrow$ \texttt{fresh herbs} & \pct{1,30} & \pct{32,73} & \textbf{3,38} \\
 Desayuno saludable & \texttt{granola} $\Rightarrow$ \texttt{yogurt} & \pct{1,51} & \pct{57,70} & \textbf{2,28} \\
 Desayuno de panadería & \texttt{breakfast bakery} $\Rightarrow$ \texttt{other creams cheeses} & \pct{1,61} & \pct{23,82} & \textbf{2,70} \\
-Picada & \texttt{preserved dips spreads} $\Rightarrow$ \texttt{chips pretzels} & \pct{1,65} & \pct{45,03} & \textbf{2,55} \\
+Pasabocas & \texttt{preserved dips spreads} $\Rightarrow$ \texttt{chips pretzels} & \pct{1,65} & \pct{45,03} & \textbf{2,55} \\
 Sándwich & \texttt{bread + packaged cheese} $\Rightarrow$ \texttt{lunch meat} & \pct{1,90} & \pct{30,90} & \textbf{2,85} \\
 Comida rápida & \texttt{tortillas flat bread} $\Rightarrow$ \texttt{packaged cheese} & \pct{2,79} & \pct{46,70} & \textbf{1,96} \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-La regla con mayor asociación es \texttt{dry pasta + packaged vegetables fruits} $\Rightarrow$ \texttt{pasta sauce}: cuando la canasta contiene pasta seca y verduras empacadas, la compra de salsa es 4,83 veces más probable que en una canasta cualquiera. Sin embargo, la estrategia no se limita a pasta: los resultados también permiten actuar en desayuno, picada, sándwich, comida rápida y cocina fresca.
+La regla con mayor asociación es \texttt{dry pasta + packaged vegetables fruits} $\Rightarrow$ \texttt{pasta sauce}: cuando la canasta contiene pasta seca y verduras empacadas, la compra de salsa es 4,83 veces más probable que en una canasta cualquiera. Sin embargo, la estrategia no se limita a pasta: los resultados también permiten actuar en desayuno, pasabocas, sándwich, comida rápida y cocina fresca.
 
 La validación confirmó que los patrones no dependen solo de la muestra inicial: \pct{96,85} de las 634 reglas de pasillo $1\rightarrow1$, \pct{99,92} de las 2\,637 reglas $2\rightarrow1$ y el 100\% de las 2\,292 reglas $3\rightarrow1$ conservaron un \textit{lift} mayor que 1 en \texttt{train}. Por ello, las reglas seleccionadas se usan como hipótesis comerciales viables.
 
@@ -119,7 +119,7 @@ Disparador en el carrito & Mensaje o sugerencia & Decisión \\
 Pasta seca + verduras empacadas, sin salsa & ``Completa tu cena: agrega una salsa para pasta'' & Mostrar 1--3 salsas disponibles y de buen margen. \\
 Verduras frescas + condimentos, sin hierbas & ``Completa tu receta con hierbas frescas'' & Mostrar albahaca, cilantro o perejil según inventario. \\
 Granola, sin yogur & ``Combina tu granola con yogur'' & Mostrar yogur individual o griego disponible. \\
-Dip o spread, sin chips/pretzels & ``Completa tu picada'' & Mostrar chips o pretzels como complemento. \\
+Dip o spread, sin chips/pretzels & ``Acompaña tus pasabocas'' & Mostrar chips o pretzels como complemento. \\
 Pan + queso empacado, sin carne fría & ``Arma tu sándwich'' & Mostrar jamón o carne fría. \\
 Tortillas, sin queso empacado & ``Prepara quesadillas o wraps'' & Mostrar queso empacado. \\
 \bottomrule
@@ -138,11 +138,11 @@ Las mismas asociaciones se traducen en ubicación, exhibición secundaria y prom
 \toprule
 Ocasión & Acción en tienda & Promoción o comunicación \\
 \midrule
-Cena de pasta & Punta de góndola con pasta seca, salsa y verduras empacadas. & ``Cena rápida'': descuento en salsa al comprar pasta; alternativa ``lleva 2 de 3''. \\
+Cena de pasta & Exhibición secundaria con pasta seca, salsa y verduras empacadas. & ``Cena rápida'': descuento en salsa al comprar pasta; alternativa ``lleva 2 de 3''. \\
 Cocina fresca & Exhibidor pequeño de hierbas frescas junto a verduras y condimentos. & Señal: ``Completa tu receta con albahaca, cilantro o perejil''. \\
 Desayuno saludable & Yogures individuales o griegos cerca de la granola. & Combo granola + yogur o descuento en la segunda categoría. \\
 Desayuno de panadería & Queso crema y untables cerca de panadería. & Señal: ``Completa tu desayuno''. \\
-Picada & Dips, spreads, chips y pretzels en la misma exhibición secundaria. & Combo ``dip + snack'' o descuento cruzado al llevar ambos. \\
+Pasabocas & Dips, spreads, chips y pretzels en la misma exhibición secundaria. & Combo ``dip + snack'' o descuento cruzado al llevar ambos. \\
 Sándwich & Zona secundaria con pan, queso empacado y carnes frías. & Señal: ``Arma tu sándwich''; promoción al llevar las tres categorías. \\
 Comida rápida & Queso empacado cerca de tortillas o pan plano. & Señal: ``Quesadillas y wraps en minutos''. \\
 \bottomrule
@@ -153,7 +153,7 @@ Comida rápida & Queso empacado cerca de tortillas o pan plano. & Señal: ``Ques
 
 \begin{enumerate}
     \item \textbf{Primera prueba:} lanzar ``Cena de pasta'' en virtual y físico. Tiene el mayor \textit{lift} (4,83) y una acción muy clara: sugerir o acercar salsa cuando aparecen pasta y verduras.
-    \item \textbf{Segunda prueba:} lanzar ``Picada'' y ``Sándwich''. Son fáciles de entender, permiten promociones cruzadas y tienen reglas validadas con \textit{lift} de 2,55 y 2,85.
+    \item \textbf{Segunda prueba:} lanzar ``Pasabocas'' y ``Sándwich''. Son fáciles de entender, permiten promociones cruzadas y tienen reglas validadas con \textit{lift} de 2,55 y 2,85.
     \item \textbf{Tercera prueba:} activar desayuno saludable y cocina fresca. Funcionan como recomendaciones de complemento, no como promociones agresivas.
     \item \textbf{Reglas $3\rightarrow1$:} conservarlas como hallazgo analítico. Por ejemplo, la combinación de comidas/enlatados, frutas y verduras predice vegetales enlatados con \textit{lift} 3,90, pero requiere tres condiciones y no es prioritaria para la primera implementación.
 \end{enumerate}
@@ -162,7 +162,7 @@ Cada acción debe probarse durante un periodo definido frente a una tienda, grup
 
 \section*{9. Conclusión}
 
-Las reglas $n\rightarrow1$ permiten pasar de datos de canastas a decisiones comerciales específicas. La recomendación no es ``mostrar productos relacionados'' de forma genérica: es activar una sugerencia, una exhibición o una promoción cuando se reconoce una ocasión concreta de compra. La estrategia propuesta empieza con pasta, picada y sándwich, y luego amplía a desayuno y cocina fresca. Esta priorización combina las reglas con mayor \textit{lift} validado con acciones que una tienda realmente puede ejecutar.
+Las reglas $n\rightarrow1$ permiten pasar de datos de canastas a decisiones comerciales específicas. La recomendación no es ``mostrar productos relacionados'' de forma genérica: es activar una sugerencia, una exhibición o una promoción cuando se reconoce una ocasión concreta de compra. La estrategia propuesta empieza con pasta, pasabocas y sándwich, y luego amplía a desayuno y cocina fresca. Esta priorización combina las reglas con mayor \textit{lift} validado con acciones que una tienda realmente puede ejecutar.
 
 \vspace{0.25cm}
 \begin{thebibliography}{9}
